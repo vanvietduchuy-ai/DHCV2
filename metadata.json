@@ -1,0 +1,7 @@
+{
+  "name": "Copy of [cơ bản] điều hành CV",
+  "description": "An intelligent AI-powered assistant that converts official documents and instructions into structured, manageable tasks with priority levels and next steps.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
