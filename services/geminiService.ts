@@ -42,36 +42,56 @@ YÊU CẦU ĐẦU RA: Trả về JSON theo đúng schema. Nội dung phải nghi
     });
   }
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: { parts },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          type: { type: Type.STRING, description: "Loại văn bản (Công văn/Kế hoạch/Điện...)" },
-          number: { type: Type.STRING, description: "Số hiệu văn bản" },
-          content: { type: Type.STRING, description: "Nội dung trọng tâm thực hiện" },
-          lead: { type: Type.STRING, description: "Đơn vị ban hành văn bản" },
-          deadline: { type: Type.STRING, description: "Hạn báo cáo (YYYY-MM-DD)" },
-          priority: { type: Type.STRING, enum: ["Cao", "Trung bình", "Thấp"] },
-          nextSteps: { 
-            type: Type.ARRAY, 
-            items: { type: Type.STRING },
-            description: "Các bước thực hiện nhiệm vụ"
-          },
-        },
-        required: ["type", "content", "lead", "deadline", "priority", "nextSteps"]
-      }
-    }
-  });
+  // Danh sách model thử lần lượt
+  const modelsToTry = [
+    "gemini-2.0-flash-exp",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro"
+  ];
 
-  try {
-    const result = JSON.parse(response.text);
-    return result as AnalysisResponse;
-  } catch (error) {
-    console.error("Error parsing Gemini response:", error);
-    throw new Error("Lỗi hệ thống OCR Công an. Vui lòng kiểm tra lại chất lượng ảnh chụp.");
+  let lastError: Error | null = null;
+
+  // Thử từng model cho đến khi thành công
+  for (const modelName of modelsToTry) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: { parts },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              type: { type: Type.STRING, description: "Loại văn bản (Công văn/Kế hoạch/Điện...)" },
+              number: { type: Type.STRING, description: "Số hiệu văn bản" },
+              content: { type: Type.STRING, description: "Nội dung trọng tâm thực hiện" },
+              lead: { type: Type.STRING, description: "Đơn vị ban hành văn bản" },
+              deadline: { type: Type.STRING, description: "Hạn báo cáo (YYYY-MM-DD)" },
+              priority: { type: Type.STRING, enum: ["Cao", "Trung bình", "Thấp"] },
+              nextSteps: { 
+                type: Type.ARRAY, 
+                items: { type: Type.STRING },
+                description: "Các bước thực hiện nhiệm vụ"
+              },
+            },
+            required: ["type", "content", "lead", "deadline", "priority", "nextSteps"]
+          }
+        }
+      });
+
+      const result = JSON.parse(response.text);
+      console.log(`✓ Thành công với model: ${modelName}`);
+      return result as AnalysisResponse;
+      
+    } catch (error: any) {
+      console.warn(`✗ Model ${modelName} thất bại:`, error.message);
+      lastError = error;
+      // Tiếp tục thử model tiếp theo
+      continue;
+    }
   }
+
+  // Nếu tất cả model đều thất bại
+  console.error("Tất cả model đều thất bại:", lastError);
+  throw new Error("Lỗi hệ thống OCR Công an. Vui lòng kiểm tra lại chất lượng ảnh chụp hoặc thử lại sau.");
 };
